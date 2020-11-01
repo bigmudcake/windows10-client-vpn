@@ -1,4 +1,4 @@
-# Author: Nash King / @gammacapricorni
+# Author: Nash King / @gammacapricorni and bigmudcake
 # By default, this script creates an -AllUserConnection in the public phonebook
 # This is due to specific needs of my primary customers.
 # To make a single user connection, do the following:
@@ -14,6 +14,14 @@
 $ConnectionName = $Continue = $Holder = $PresharedKey = $ServerAddress = $VpnExists = $SplitCheck = $MoreRoutes = ""
 $Subnets = @()
 $AddRouteCheck = "`nAdd another route? (y/n)"
+
+# Set $SplitCheck below to "y" or "n" if to enable/disable Split Tunnelling without prompting the user. Leave as "" to prompt user.
+$SplitCheck = ""
+
+# Set $MoreRoutes below to "n" if your using a DHCP server to pass routes to the VPN client at runtime as DHCP options 121 and 249,
+# and you do not wish to prompt the user to enter extra IP routes.  Leave as "" to prompt user.
+# It is recommended you set to "n" and setup a DHCP server to handle the routes as it shields the end user being exposed to this technical level. 
+$MoreRoutes = ""
 
 # Phonebook path for all user connections.
 $PbkPath = "$env:PROGRAMDATA\Microsoft\Network\Connections\Pbk\rasphone.pbk"
@@ -34,7 +42,7 @@ If ((Test-Path $PbkPath) -eq $false) {
     }
 }
 
-# Reminder so looping prompts doesn't confuse help desk.
+# Reminder so looping prompts doesn't confuse user.
 Write-Host -ForegroundColor Yellow "Prompts will loop until you enter a valid response."
 
 # Get VPN connection name.
@@ -69,8 +77,7 @@ If ($VpnExists -eq $True) {
     } Until ($Continue -eq "n" -or $Continue -eq "y")
 }
 
-# Use either Meraki dynamic DNS OR a CNAME record of Meraki DDNS for 'host name'.
-# Then if IP changes, you don't have to update PCs.
+# Prompt for FQDN of VPN server or its public IP address.
 Do {
     $ServerAddress = Read-Host -Prompt "`nHost name or IP address"
 } While ($ServerAddress -eq "")
@@ -86,8 +93,10 @@ Write-Host -ForegroundColor Yellow "`nCreated VPN connection for $ConnectionName
 
 # Ask if split or full tunnel
 Do {
-    $SplitCheck = Read-Host -Prompt "`nSplit tunnel? (y/n)"
-    # Prompt for VPN subnet. Ask to confirm. Try to add. Ask to add more routes.
+    # only Prompt for $SplitCheck if not already set at top of script.
+    If (($SplitCheck -ne "y") -and ($SplitCheck -ne "n")) {
+        $SplitCheck = Read-Host -Prompt "`nSplit tunnel? (y/n)"
+    }
     Switch ($SplitCheck) {
         'y' {
             try {
@@ -101,9 +110,9 @@ Do {
     }
 } Until ($SplitCheck -eq "n" -or $SplitCheck -eq "y")
 
-# If split tunnel, need to add routes for the remote subnets
+# If split tunnel, you may need to add routes for the remote subnets
 # Use CIDR format: 192.168.5.0/24
-If ($SplitCheck -eq "y") {
+If (($SplitCheck -eq "y") -and ($MoreRoutes -eq "")) {
     # Loop until at least one valid route is created
     Do {
         # Prompt for the subnet
