@@ -2,41 +2,92 @@
 # By default, this script creates an -AllUserConnection in the public phonebook
 # This is due to specific needs of my primary customers.
 # To make a single user connection, do the following:
-#   Remove Requires - RunAsAdministrator
-#   Remove -AllUserConnection
-#   Change $env:PROGRAMDATA to $env:APPDATA
-#   Change "$env:Public\Desktop\$ConnectionName.lnk" to [Environment]::GetFolderPath("Desktop") + "\$ConnectionName.link"
-#       [Environment]::GetFolderPath("Desktop") allows script to behave correctly on redirected desktops.
+#   change $AllUserCheck below to 'n' or '' to prompt user.
 
-#Requires -RunAsAdministrator
+# Return True if this script is "Run as Administrator" or from an administrator account
+$IsAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")
 
 # Declare each variable for tidiness.
-$ConnectionName = $Continue = $Holder = $PresharedKey = $ServerAddress = $VpnExists = $SplitCheck = $MoreRoutes = ""
+$ConnectionName = $Continue = $Holder = $PresharedKey = $ServerAddress = $VpnExists = $SplitCheck = $MoreRoutes = $RootPbkPath = $DesktopPath = ''
 $Subnets = @()
-$AddRouteCheck = "`nAdd another route? (y/n)"
 
-# Set $SplitCheck below to "y" or "n" if to enable/disable Split Tunnelling without prompting the user. Leave as "" to prompt user.
-$SplitCheck = ""
 
-# Set $MoreRoutes below to "n" if your using a DHCP server to pass routes to the VPN client at runtime as DHCP options 121 and 249,
-# and you do not wish to prompt the user to enter extra IP routes.  Leave as "" to prompt user.
-# It is recommended you set to "n" and setup a DHCP server to handle the routes as it shields the end user being exposed to this technical level. 
-$MoreRoutes = ""
+# Set $SplitCheck below to 'y' or 'n' to enable/disable Split Tunnelling without prompting the user. 
+# Leave as '' to prompt user.
+$SplitCheck = ''
+
+# Set $MoreRoutes below to 'n' if your using a DHCP server to pass routes to the VPN client at runtime 
+# as DHCP option 249 (classless address), and you do not wish to prompt the user to enter extra IP routes.  
+# It is recommended you set to 'n' and setup a DHCP server for routes as it shields complexity from users. 
+# Leave as '' to prompt user to add static IP routes.
+$MoreRoutes = 'n'
+
+# Set $AllUserCheck below to enable creation of VPN Connection for All Users ('y') 
+# or Local User only ('n') without prompting the user.
+# If you set this to 'y' then this script must be run with administrator rights.
+# Leave as '' to prompt user.
+$AllUserCheck = ''
+
+# Set Authentication Method. Can either be "Pap", "Chap", "MSChapv2", "Eap", or "MachineCertificate"
+$AuthMethod = "MSChapv2"
+
+# Setting to $True below allows the VPN Connection to remember your login name and password,
+# which is used to allow you to automatically login with these credentials to other resources.
+# Set to $False to prompt for username and password on all resources after connecting to VPN  
+$RememberUser = $True
+
+
+# Abort if AllUserCheck is set to 'y' and there are no Administrator Rights on this script
+if (($IsAdmin -eq $False) -and ($AllUserCheck -eq 'y')) {
+	Write-Host -ForegroundColor Red "`nERROR: This script must be run with Administrator Rights!"
+	exit
+}
+
+# override AllUserCheck if there are no Administrator Rights as VPN can then only be created for Local User.
+if ($IsAdmin -eq $False) {
+	$AllUserCheck = 'n'
+}
+else {
+	Write-Host -ForegroundColor Yellow "`nNOTE: This script is running with Administrator Rights"
+}
+
+# Set whether VPN Connection is created for All Users or Local User only
+Do {
+    # only Prompt for $AllUserCheck if not already set.
+    If (($AllUserCheck -ne 'y') -and ($AllUserCheck -ne 'n')) {
+        $AllUserCheck = Read-Host -Prompt "`nCreate this VPN Connection for All Users? (y/n)"
+	}
+	If ($AllUserCheck -eq 'y') {
+		# Set paths and variables for all users scope (requires script run with administrator rights)
+		Write-Host -ForegroundColor Yellow "`nAbout to create a VPN Connection for All Users of this Computer."
+		$AllUserCheck = $True
+		$RootPbkPath = $env:PROGRAMDATA
+		$DesktopPath = "$env:Public\Desktop"
+	}
+	elseif ($AllUserCheck -eq 'n') {
+		# Set paths and variables for this user only
+		Write-Host -ForegroundColor Yellow "`nAbout to create a VPN Connection for this Windows User only."
+		$AllUserCheck = $False
+		$RootPbkPath = $env:APPDATA
+		$DesktopPath = [Environment]::GetFolderPath("Desktop") # allows for redirected desktops
+	}
+} Until (($AllUserCheck -eq $True) -or ($AllUserCheck -eq $False))
+
 
 # Phonebook path for all user connections.
-$PbkPath = "$env:PROGRAMDATA\Microsoft\Network\Connections\Pbk\rasphone.pbk"
+$PbkPath = "$RootPbkPath\Microsoft\Network\Connections\Pbk\rasphone.pbk"
 
 # If no VPNs, rasphone.pbk may not already exist
 # If file does not exist, then create an empty placeholder.
 
 # Placeholder will be overwritten when new VPN is created.
-If ((Test-Path $PbkPath) -eq $false) {
-    $PbkFolder = "$env:PROGRAMDATA\Microsoft\Network\Connections\pbk\"
-    if ((Test-Path $PbkFolder) -eq $true){
+If ((Test-Path $PbkPath) -eq $False) {
+    $PbkFolder = "$RootPbkPath\Microsoft\Network\Connections\pbk\"
+    if ((Test-Path $PbkFolder) -eq $True) {
         New-Item -path $PbkFolder -name "rasphone.pbk" -ItemType "file" | Out-Null
     }
-    else{
-        $ConnectionFolder = "$env:PROGRAMDATA\Microsoft\Network\Connections\"
+    else {
+        $ConnectionFolder = "$RootPbkPath\Microsoft\Network\Connections\"
         New-Item -path $ConnectionFolder -name "pbk" -ItemType "directory" | Out-Null
         New-Item -path $PbkFolder -name "rasphone.pbk" -ItemType "file" | Out-Null
     }
@@ -48,10 +99,17 @@ Write-Host -ForegroundColor Yellow "Prompts will loop until you enter a valid re
 # Get VPN connection name.
 Do {
     $ConnectionName = Read-Host -Prompt "`nName of VPN Connection"
-} While ($ConnectionName -eq "")
+} While ($ConnectionName -eq '')
+
+# Create a hash table for splatting with common base parameters
+$HashBase = @{ 
+	Name = $ConnectionName 
+	AllUserConnection = $AllUserCheck
+}
 
 # Check if matching VPN already exists.
-$VpnExists = (Get-Content $PbkPath | Select-String -Pattern $ConnectionName -Quiet)
+$HashSearch = @{ Pattern = "[$ConnectionName]"; }
+$VpnExists = (Get-Content $PbkPath | Select-String @HashSearch -SimpleMatch -Quiet)
 
 # If VPN exists
 If ($VpnExists -eq $True) {
@@ -61,7 +119,7 @@ If ($VpnExists -eq $True) {
         Switch ($Continue) {
             'y' {
                 Try {
-                    Remove-VpnConnection -AllUserConnection -Name $ConnectionName -Force
+                    Remove-VpnConnection @HashBase -Force
                     Write-Host -ForegroundColor Yellow "`nDeleted old VPN Connection: $ConnectionName"
                 }
                 Catch {
@@ -74,64 +132,81 @@ If ($VpnExists -eq $True) {
                 exit
                 }
             }
-    } Until ($Continue -eq "n" -or $Continue -eq "y")
+    } Until ($Continue -eq 'n' -or $Continue -eq 'y')
 }
+
 
 # Prompt for FQDN of VPN server or its public IP address.
 Do {
     $ServerAddress = Read-Host -Prompt "`nHost name or IP address"
-} While ($ServerAddress -eq "")
+} While ($ServerAddress -eq '')
 
 Do {
     $PresharedKey = Read-Host -Prompt "`nPre-shared key"
-} While ($PresharedKey -eq "")
-
-# Create the saved VPN connection.
-# Suppress error regarding PAP.
-Add-VpnConnection -Name $ConnectionName -ServerAddress $ServerAddress -AllUserConnection -TunnelType L2tp -L2tpPsk $PresharedKey -AuthenticationMethod Pap -EncryptionLevel Optional -Force -WA SilentlyContinue
-Write-Host -ForegroundColor Yellow "`nCreated VPN connection for $ConnectionName"
+} While ($PresharedKey -eq '')
 
 # Ask if split or full tunnel
 Do {
     # only Prompt for $SplitCheck if not already set at top of script.
-    If (($SplitCheck -ne "y") -and ($SplitCheck -ne "n")) {
+    If (($SplitCheck -ne 'y') -and ($SplitCheck -ne 'n')) {
         $SplitCheck = Read-Host -Prompt "`nSplit tunnel? (y/n)"
     }
-    Switch ($SplitCheck) {
-        'y' {
-            try {
-                Set-VpnConnection -Name $ConnectionName -SplitTunneling $True -AllUserConnection -WA SilentlyContinue
-            }
-            catch {
-                Write-Host -ForegroundColor Red "`nFailed to set split tunnel."
-                $SplitCheck = "n"
-            }
-        }
-    }
-} Until ($SplitCheck -eq "n" -or $SplitCheck -eq "y")
+    if ($SplitCheck -eq 'y') {
+		$SplitCheck = $True
+	}
+	elseif ($SplitCheck -eq 'n') {
+		$SplitCheck = $False
+	}
+} Until (($SplitCheck -eq $True) -or ($SplitCheck -eq $False))
+
+
+# Create the new VPN connection 
+# Splatting parameters with hash tables
+$HashArguments = @{ 
+	ServerAddress = $ServerAddress
+	SplitTunneling = $SplitCheck
+	TunnelType = 'L2tp'
+	L2tpPsk = $PresharedKey 
+	AuthenticationMethod = $AuthMethod 
+	EncryptionLevel = 'Optional' 
+	RememberCredential = $RememberUser
+	Force = $True
+	PassThru = $True
+}
+Try {
+	Add-VpnConnection @HashBase @HashArguments
+}
+Catch {
+	Write-Host -ForegroundColor Red "`nERROR: Unable to create connection named `"$ConnectionName`""
+	exit
+}
+Write-Host -ForegroundColor Yellow "`nVPN Connection Created for `"$ConnectionName`""
 
 # If split tunnel, you may need to add routes for the remote subnets
 # Use CIDR format: 192.168.5.0/24
-If (($SplitCheck -eq "y") -and ($MoreRoutes -eq "")) {
+If (($SplitCheck -eq $True) -and ($MoreRoutes -eq '')) {
     # Loop until at least one valid route is created
     Do {
         # Prompt for the subnet
         Do {
             # Loop until non-blank result given
             Do {
-                $Holder = Read-Host -Prompt "`nVPN Subnet"
-            } Until ($Holder -ne "")
+                $Holder = Read-Host -Prompt "`nVPN Subnet (e.g. 192.168.5.0/24)"
+            } Until ($Holder -ne '')
 
             # Prompt user to review and approve route
             Do {
                 $RouteCheck = Read-Host -Prompt "`nAdd subnet $Holder (y/n)"
-            } Until ($RouteCheck -eq "n" -or $RouteCheck -eq "y")
+			} Until (($RouteCheck -eq 'n') -or ($RouteCheck -eq 'y'))
+			
+			# Create subnet hash for splatting DestinationPrefix parameter
+			$HashSubnet = @{ DestinationPrefix = $Holder; }
 
             # If route is approved, try to add
-            if ($RouteCheck -eq "y") {
+            if ($RouteCheck -eq 'y') {
                 Try {
-                    Add-Vpnconnectionroute -ConnectionName $ConnectionName -AllUserConnection -DestinationPrefix $Holder
-                    Write-Host "`nAdded subnet: $Holder"
+                    Add-Vpnconnectionroute @HashBase @HashSubnet
+                    Write-Host "`nAdding subnet: $Holder"
                     $Subnets += $Holder
                 }
                 Catch {
@@ -141,13 +216,13 @@ If (($SplitCheck -eq "y") -and ($MoreRoutes -eq "")) {
                     }
                 }
             }
-            $Holder = ""
+            $Holder = ''
             # Prompt to add another route
             Do {
-                $MoreRoutes = Read-Host -Prompt "$AddRouteCheck"
-            } Until ($MoreRoutes -eq "y" -or $MoreRoutes -eq "n")
+                $MoreRoutes = Read-Host -Prompt "`nAdd another route? (y/n)"
+            } Until ($MoreRoutes -eq 'y' -or $MoreRoutes -eq 'n')
         # End loop after no more routes
-        } While ($MoreRoutes -eq "y")
+        } While ($MoreRoutes -eq 'y')
 
     # End the loop only once at least one valid subnet has been added
     } Until ($Subnets.count -ge 1)
@@ -161,8 +236,8 @@ $ConnectionIndex = 0
 
 # Locate the array index for the [$ConnectionName] saved connection.
 # Ensures that we only edit settings for this particular connection.
-for ($counter=0; $counter -lt $Phonebook.Length; $counter++){
-    if($Phonebook[$counter] -eq "[$ConnectionName]"){
+for ($counter=0; $counter -lt $Phonebook.Length; $counter++) {
+    if($Phonebook[$counter] -eq "[$ConnectionName]") {
         # Set $ConnectionIndex var since $counter only exists inside loop
         $ConnectionIndex = $counter
         # Break since we've got our index now
@@ -177,16 +252,16 @@ for ($counter=0; $counter -lt $Phonebook.Length; $counter++){
 #        on the Internet. If VPN-provided DNS can resolve names on the local domain,
 #        then end user PC will get the correct IP addresses for private servers.
 
-for($counter=$ConnectionIndex; $counter -lt $Phonebook.Length; $counter++){
+for($counter=$ConnectionIndex; $counter -lt $Phonebook.Length; $counter++) {
     # Set RASPhone.pbk so that the Windows credential is used to
     # authenticate to servers.
-    if($Phonebook[$counter] -eq "UseRasCredentials=1"){
+    if($Phonebook[$counter] -eq "UseRasCredentials=1") {
         $Phonebook[$counter] = "UseRasCredentials=0"
     }
 
     # Set RASPhone.pbk so that VPN adapters are highest priority for routing traffic.
     # Comment out if you don't want to use VPN-provided DNS for Internet domains.
-    elseif($Phonebook[$counter] -eq "IpInterfaceMetric=0"){
+    elseif($Phonebook[$counter] -eq "IpInterfaceMetric=0") {
         $Phonebook[$counter] = "IpInterfaceMetric=1"
         break
     }
@@ -195,19 +270,19 @@ for($counter=$ConnectionIndex; $counter -lt $Phonebook.Length; $counter++){
 # Save modified phonebook overtop of RASphone.pbk
 Set-Content -Path $PbkPath -Value $Phonebook
 
-# Create desktop shortcut for all users using rasphone.exe
-# Provides a static box for end users to type user name/password into
+# Create desktop shortcut that uses using rasphone.exe
+# Provides a static box for end users to type their user name/password into.
 # Avoids Windows 10 overlay problems such as showing "Connecting..." even
 # after a successful connection.
 Try {
-    $ShortcutFile = "$env:Public\Desktop\$ConnectionName.lnk"
+    $ShortcutFile = "$DesktopPath\$ConnectionName.lnk"
     $WScriptShell = New-Object -ComObject WScript.Shell
     $Shortcut = $WScriptShell.CreateShortcut($ShortcutFile)
     $Shortcut.TargetPath = "rasphone.exe"
     $Shortcut.Arguments = "-d `"$ConnectionName`""
     $ShortCut.WorkingDirectory = "$env:SystemRoot\System32\"
     $Shortcut.Save()
-    Write-Host -ForegroundColor Yellow "`nCreated VPN shortcut on desktop for all users. Remind customer to use that short cut!"
+    Write-Host -ForegroundColor Yellow "`nCreated VPN Shortcut on the Desktop. Please use this Shortcut to start your VPN"
 }
 Catch {
     Write-Host -ForegroundColor Red "`nUnable to create VPN shortcut."
@@ -216,13 +291,26 @@ Catch {
 # Prevent Windows 10 problem with NAT-Traversal (often on hotspots)
 # See https://documentation.meraki.com/MX/Client_VPN/Troubleshooting_Client_VPN#Windows_Error_809
 # for more details
-$registryPath = "HKLM:\SYSTEM\CurrentControlSet\Services\PolicyAgent"
-$name = "AssumeUDPEncapsulationContextOnSendRule"
-$value = "2"
-Try {
-    New-ItemProperty -Path $registryPath -Name $name -Value $value -PropertyType DWORD -Force | Out-Null
-    Write-Host -ForegroundColor Yellow "`nIf this is the first time a Meraki VPN has been setup, reboot computer to finish setup."
+# Splatting hash table with Registry Parameters
+$HashRegistryParams = @{ 
+	Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\PolicyAgent'
+	Name = 'AssumeUDPEncapsulationContextOnSendRule'
+	Value = '2'
+	PropertyType = 'DWORD'
 }
-Catch {
-    Write-Host -ForegroundColor Red "`nUnable to create registry key."
+if ($IsAdmin -eq $True) {
+	Try {
+	    New-ItemProperty @HashRegistryParams | Out-Null
+	    Write-Host -ForegroundColor Yellow "If this is the first time a Windows 10 client VPN has been setup, reboot computer to finish setup."
+	}
+	Catch {
+	    Write-Host -ForegroundColor Red "`nUnable to create registry key."
+	}
+}
+else {
+	Write-Host -ForegroundColor Yellow "If this is the first time a Windows 10 client VPN has been setup, please add the following to the System Registry"
+	$HashRegistryParams.GetEnumerator() | ForEach-Object{
+        $message = "     {0} = {1}" -f $_.key, $_.value
+        Write-Host $message 
+	}
 }
