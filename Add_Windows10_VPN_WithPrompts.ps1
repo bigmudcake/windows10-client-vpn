@@ -32,8 +32,8 @@ $AllUserCheck = ''
 $AuthMethod = "MSChapv2"
 
 # Setting to $True below allows the VPN Connection to remember your login name and password,
-# which is used to allow you to automatically login with these credentials to other resources.
-# Set to $False to prompt for username and password on all resources after connecting to VPN  
+# which is then used to to automatically login to other resources like network drives.
+# Set to $False to force prompt for username and password on all resources after connecting to VPN  
 $RememberUser = $True
 
 
