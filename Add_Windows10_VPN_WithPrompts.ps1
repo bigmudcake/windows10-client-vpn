@@ -182,6 +182,9 @@ Catch {
 }
 Write-Host -ForegroundColor Yellow "`nVPN Connection Created for `"$ConnectionName`""
 
+# Note: Some PCs get angry w/o a short rest after processing Add-VPNConnection
+Start-Sleep -m 100
+
 # If split tunnel, you may need to add routes for the remote subnets
 # Use CIDR format: 192.168.5.0/24
 If (($SplitCheck -eq $True) -and ($MoreRoutes -eq '')) {
