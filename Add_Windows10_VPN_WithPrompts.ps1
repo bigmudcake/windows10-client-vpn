@@ -100,8 +100,8 @@ Write-Host -ForegroundColor Yellow "Prompts will loop until you enter a valid re
 # Get VPN connection name.
 Do {
     $ConnectionName = Read-Host -Prompt "`nName of VPN Connection"
+	$ConnectionName = $ConnectionName.Trim()
 } While ($ConnectionName -eq '')
-$ConnectionName.Trim()
 
 # Create a hash table for splatting with common base parameters
 $HashBase = @{ 
@@ -143,11 +143,12 @@ If ($VpnExists -eq $True) {
 # Prompt for FQDN of VPN server or its public IP address.
 Do {
     $ServerAddress = Read-Host -Prompt "`nHost name or IP address"
+	$ServerAddress = $ServerAddress.Trim()
 } While ($ServerAddress -eq '')
-$ServerAddress.Trim()
 
 Do {
     $PresharedKey = Read-Host -Prompt "`nPre-shared key"
+	$PresharedKey = $PresharedKey.Trim()
 } While ($PresharedKey -eq '')
 
 # Ask if split or full tunnel
@@ -201,8 +202,8 @@ If (($SplitCheck -eq $True) -and ($MoreRoutes -eq '')) {
             # Loop until non-blank result given
             Do {
                 $Holder = Read-Host -Prompt "`nVPN Subnet (e.g. 192.168.5.0/24)"
+				$Holder = $Holder.Trim()
 			} Until ($Holder -ne '')
-			$Holder.Trim()
 
             # Prompt user to review and approve route
             Do {
