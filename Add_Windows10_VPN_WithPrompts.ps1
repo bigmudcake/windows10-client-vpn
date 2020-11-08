@@ -12,6 +12,8 @@ $ConnectionName = $Continue = $Holder = $PresharedKey = $ServerAddress = $VpnExi
 $Subnets = @()
 
 
+
+
 # Set $SplitCheck below to 'y' or 'n' to enable/disable Split Tunnelling without prompting the user. 
 # Leave as '' to prompt user.
 $SplitCheck = ''
@@ -31,10 +33,8 @@ $AllUserCheck = ''
 # Set Authentication Method. Can either be "Pap", "Chap", "MSChapv2", "Eap", or "MachineCertificate"
 $AuthMethod = "MSChapv2"
 
-# Setting to $True below allows the VPN Connection to remember your login name and password,
-# which is then used to to automatically login to other resources like network drives.
-# Set to $False to force prompt for username and password on all resources after connecting to VPN  
-$RememberUser = $True
+
+
 
 
 # Abort if AllUserCheck is set to 'y' and there are no Administrator Rights on this script
@@ -175,7 +175,7 @@ $HashArguments = @{
 	L2tpPsk = $PresharedKey 
 	AuthenticationMethod = $AuthMethod 
 	EncryptionLevel = 'Optional' 
-	RememberCredential = $RememberUser
+	RememberCredential = $False
 	Force = $True
 	PassThru = $True
 }
