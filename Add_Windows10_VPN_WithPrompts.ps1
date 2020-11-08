@@ -310,7 +310,12 @@ $HashRegistryParams = @{
 }
 if ($IsAdmin -eq $True) {
 	Try {
-	    New-ItemProperty @HashRegistryParams | Out-Null
+		# First create registry path if it doesnt exist
+		IF(!(Test-Path $HashRegistryParams['Path'])) {
+			New-Item -Path $HashRegistryParams['Path'] -Force | Out-Null
+		}
+		# Update registry key with necessary value
+	    New-ItemProperty @HashRegistryParams -Force | Out-Null
 	    Write-Host -ForegroundColor Yellow "`nIf this is the first time a Windows 10 client VPN has been setup, reboot computer to finish setup."
 	}
 	Catch {
