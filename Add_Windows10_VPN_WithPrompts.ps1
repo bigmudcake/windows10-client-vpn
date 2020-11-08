@@ -40,6 +40,7 @@ $RememberUser = $True
 # Abort if AllUserCheck is set to 'y' and there are no Administrator Rights on this script
 if (($IsAdmin -eq $False) -and ($AllUserCheck -eq 'y')) {
 	Write-Host -ForegroundColor Red "`nERROR: This script must be run with Administrator Rights!"
+	Pause
 	exit
 }
 
@@ -124,12 +125,14 @@ If ($VpnExists -eq $True) {
                     Write-Host -ForegroundColor Yellow "`nDeleted old VPN Connection: $ConnectionName"
                 }
                 Catch {
-                    Write-Host -ForegroundColor Red "`nERROR: Unable to delete connection named $ConnectionName"
+					Write-Host -ForegroundColor Red "`nERROR: Unable to delete connection named $ConnectionName"
+					Pause
                     exit
                 }
             }
             'n' {
-                Write-Host -ForegroundColor Yellow "`nKeeping old VPN. Exiting script..."
+				Write-Host -ForegroundColor Yellow "`nKeeping old VPN. Exiting script..."
+				Pause
                 exit
                 }
             }
@@ -180,6 +183,7 @@ Try {
 }
 Catch {
 	Write-Host -ForegroundColor Red "`nERROR: Unable to create connection named `"$ConnectionName`""
+	Pause
 	exit
 }
 Write-Host -ForegroundColor Yellow "VPN Connection Created for `"$ConnectionName`""
@@ -320,3 +324,5 @@ else {
         Write-Host $message 
 	}
 }
+Pause
+exit
