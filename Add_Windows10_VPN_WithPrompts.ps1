@@ -180,7 +180,7 @@ Catch {
 	Write-Host -ForegroundColor Red "`nERROR: Unable to create connection named `"$ConnectionName`""
 	exit
 }
-Write-Host -ForegroundColor Yellow "`nVPN Connection Created for `"$ConnectionName`""
+Write-Host -ForegroundColor Yellow "VPN Connection Created for `"$ConnectionName`""
 
 # Note: Some PCs get angry w/o a short rest after processing Add-VPNConnection
 Start-Sleep -m 100
@@ -285,7 +285,7 @@ Try {
     $Shortcut.Arguments = "-d `"$ConnectionName`""
     $ShortCut.WorkingDirectory = "$env:SystemRoot\System32\"
     $Shortcut.Save()
-    Write-Host -ForegroundColor Yellow "`nCreated VPN Shortcut on the Desktop. Please use this Shortcut to start your VPN"
+    Write-Host -ForegroundColor Yellow "Created VPN Shortcut on the Desktop. Please use this Shortcut to start your VPN"
 }
 Catch {
     Write-Host -ForegroundColor Red "`nUnable to create VPN shortcut."
@@ -304,14 +304,14 @@ $HashRegistryParams = @{
 if ($IsAdmin -eq $True) {
 	Try {
 	    New-ItemProperty @HashRegistryParams | Out-Null
-	    Write-Host -ForegroundColor Yellow "If this is the first time a Windows 10 client VPN has been setup, reboot computer to finish setup."
+	    Write-Host -ForegroundColor Yellow "`nIf this is the first time a Windows 10 client VPN has been setup, reboot computer to finish setup."
 	}
 	Catch {
 	    Write-Host -ForegroundColor Red "`nUnable to create registry key."
 	}
 }
 else {
-	Write-Host -ForegroundColor Yellow "If this is the first time a Windows 10 client VPN has been setup, please add the following to the System Registry"
+	Write-Host -ForegroundColor Yellow "`nIf this is the first time a Windows 10 client VPN has been setup,`n please add the following to the System Registry"
 	$HashRegistryParams.GetEnumerator() | ForEach-Object{
         $message = "     {0} = {1}" -f $_.key, $_.value
         Write-Host $message 
