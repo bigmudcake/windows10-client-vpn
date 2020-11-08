@@ -8,11 +8,15 @@
 $IsAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")
 
 # Declare each variable for tidiness.
-$ConnectionName = $Continue = $Holder = $PresharedKey = $ServerAddress = $VpnExists = $SplitCheck = $MoreRoutes = $RootPbkPath = $DesktopPath = ''
+$Continue = $Holder = $PresharedKey = $ServerAddress = $VpnExists = $RootPbkPath = $DesktopPath = ''
 $Subnets = @()
 
 
 
+
+# Set $ConnectionName to a predetermined name and automatically delete existing connection with same name. 
+# Leave as '' to prompt user.
+$ConnectionName = ''
 
 # Set $SplitCheck below to 'y' or 'n' to enable/disable Split Tunnelling without prompting the user. 
 # Leave as '' to prompt user.
@@ -97,9 +101,16 @@ If ((Test-Path $PbkPath) -eq $False) {
 # Reminder so looping prompts doesn't confuse user.
 Write-Host -ForegroundColor Yellow "Prompts will loop until you enter a valid response."
 
-# Get VPN connection name.
+# Dont prompt to overwrite existing connection if name has been preset at start of script
+If ($ConnectionName -ne '') {
+	$Continue = 'y'
+}
+
+# Get VPN connection name if not preset at start of script.
 Do {
-    $ConnectionName = Read-Host -Prompt "`nName of VPN Connection"
+	If ($ConnectionName -eq '') {
+		$ConnectionName = Read-Host -Prompt "`nName of VPN Connection"
+	}
 	$ConnectionName = $ConnectionName.Trim()
 } While ($ConnectionName -eq '')
 
@@ -116,8 +127,10 @@ $VpnExists = (Get-Content $PbkPath | Select-String @HashSearch -SimpleMatch -Qui
 # If VPN exists
 If ($VpnExists -eq $True) {
     Do {
-        # Ask to overwrite
-        $Continue = Read-Host -Prompt "`nVPN already exists. Overwrite? (y/n)"
+		# Ask to overwrite
+		if (($Continue -ne 'n') -or ($Continue -ne 'y')) {
+			$Continue = Read-Host -Prompt "`nVPN already exists. Overwrite? (y/n)"
+		}
         Switch ($Continue) {
             'y' {
                 Try {
