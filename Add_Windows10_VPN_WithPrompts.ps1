@@ -11,6 +11,7 @@ $IsAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).gr
 $Continue = $Holder = $PresharedKey = $ServerAddress = $VpnExists = $RootPbkPath = $DesktopPath = ''
 $Subnets = @()
 
+
 ############################################################################################################
 ################### PLEASE ADJUST THE VALUES BELOW TO MATCH YOUR VPN REQUIREMENTS ##########################
 
