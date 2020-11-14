@@ -18,6 +18,14 @@ $Subnets = @()
 # Leave as '' to prompt user.
 $ConnectionName = ''
 
+# Set $ServerAddress to a FQDN of the VPN server or its public IP address. 
+# Leave as '' to prompt user.
+$ServerAddress = ''
+
+# Set $PresharedKey to a predetermined VPN secret shared key. 
+# Leave as '' to prompt user.
+$PresharedKey
+
 # Set $SplitCheck below to 'y' or 'n' to enable/disable Split Tunnelling without prompting the user. 
 # Leave as '' to prompt user.
 $SplitCheck = ''
@@ -101,7 +109,7 @@ If ((Test-Path $PbkPath) -eq $False) {
 # Reminder so looping prompts doesn't confuse user.
 Write-Host -ForegroundColor Yellow "Prompts will loop until you enter a valid response."
 
-# Dont prompt to overwrite existing connection if name has been preset at start of script
+# Overwrite existing connection without prompting if name has been preset at start of script
 If ($ConnectionName -ne '') {
 	$Continue = 'y'
 }
@@ -155,12 +163,16 @@ If ($VpnExists -eq $True) {
 
 # Prompt for FQDN of VPN server or its public IP address.
 Do {
-    $ServerAddress = Read-Host -Prompt "`nHost name or IP address"
+	If ($ServerAddress -eq '') {
+		$ServerAddress = Read-Host -Prompt "`nHost name or IP address"
+	}
 	$ServerAddress = $ServerAddress.Trim()
 } While ($ServerAddress -eq '')
 
 Do {
-    $PresharedKey = Read-Host -Prompt "`nPre-shared key"
+	If ($PresharedKey -eq '') {
+		$PresharedKey = Read-Host -Prompt "`nPre-shared key"
+	}
 	$PresharedKey = $PresharedKey.Trim()
 } While ($PresharedKey -eq '')
 
