@@ -139,7 +139,7 @@ $VpnExists = (Get-Content $PbkPath | Select-String @HashSearch -SimpleMatch -Qui
 If ($VpnExists -eq $True) {
     Do {
 		# Ask to overwrite
-		if (($Continue -ne 'n') -or ($Continue -ne 'y')) {
+		if (($Continue -ne 'n') -and ($Continue -ne 'y')) {
 			$Continue = Read-Host -Prompt "`nVPN already exists. Overwrite? (y/n)"
 		}
         Switch ($Continue) {
