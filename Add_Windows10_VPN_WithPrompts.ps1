@@ -11,8 +11,8 @@ $IsAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).gr
 $Continue = $Holder = $PresharedKey = $ServerAddress = $VpnExists = $RootPbkPath = $DesktopPath = ''
 $Subnets = @()
 
-
-
+############################################################################################################
+################### PLEASE ADJUST THE VALUES BELOW TO MATCH YOUR VPN REQUIREMENTS ##########################
 
 # Set $ConnectionName to a predetermined name and automatically delete existing connection with same name. 
 # Leave as '' to prompt user.
@@ -45,6 +45,8 @@ $AllUserCheck = ''
 # Set Authentication Method. Can either be "Pap", "Chap", "MSChapv2", "Eap", or "MachineCertificate"
 $AuthMethod = "MSChapv2"
 
+################# END OF VALUES TO ADJUST - DO NOT CHANGE ANYTHING BELOW THIS LINE #########################
+############################################################################################################
 
 
 
