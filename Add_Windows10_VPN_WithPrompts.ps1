@@ -24,7 +24,7 @@ $ServerAddress = ''
 
 # Set $PresharedKey to a predetermined VPN secret shared key. 
 # Leave as '' to prompt user.
-$PresharedKey
+$PresharedKey = ''
 
 # Set $SplitTunnel below to 'y' or 'n' to enable/disable Split Tunnelling without prompting the user. 
 # Leave as '' to prompt user.
