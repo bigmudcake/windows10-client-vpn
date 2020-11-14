@@ -284,30 +284,38 @@ for ($counter=0; $counter -lt $Phonebook.Length; $counter++) {
     }
 }
 
+
 # Starting at the $ConnectionName connection:
 # 1. Set connection to use Windows Credential (UseRasCredentials)
 # 2. Force client to use VPN-provided DNS first (IpInterfaceMetric)
 #      Some companies have local domains that overlap with valid domains
 #        on the Internet. If VPN-provided DNS can resolve names on the local domain,
 #        then end user PC will get the correct IP addresses for private servers.
+# 3. Disable "File and Printer Sharing for Microsoft Networks" on VPN Connection.
 
-for($counter=$ConnectionIndex; $counter -lt $Phonebook.Length; $counter++) {
+for ($counter=$ConnectionIndex; $counter -lt $Phonebook.Length; $counter++) {
     # Set RASPhone.pbk so that the Windows credential is used to
     # authenticate to servers.
-    if($Phonebook[$counter] -eq "UseRasCredentials=1") {
-        $Phonebook[$counter] = "UseRasCredentials=0"
+    if ($Phonebook[$counter] -eq 'UseRasCredentials=1') {
+        $Phonebook[$counter] = 'UseRasCredentials=0'
     }
-
     # Set RASPhone.pbk so that VPN adapters are highest priority for routing traffic.
     # Comment out if you don't want to use VPN-provided DNS for Internet domains.
-    elseif($Phonebook[$counter] -eq "IpInterfaceMetric=0") {
-        $Phonebook[$counter] = "IpInterfaceMetric=1"
-        break
-    }
+    elseif ($Phonebook[$counter] -eq 'IpInterfaceMetric=0') {
+        $Phonebook[$counter] = 'IpInterfaceMetric=1'
+	}
+	# Disable "File and Printer Sharing for Microsoft Networks" on VPN Connection
+    elseif ($Phonebook[$counter] -eq 'ms_server=1') {
+        $Phonebook[$counter] = 'ms_server=0'
+	}
+	# break out of loop at end of entries for this VPN connection
+	elseif ($Phonebook[$counter] -eq 'AreaCode=') {
+		break
+	}
 }
-
 # Save modified phonebook overtop of RASphone.pbk
 Set-Content -Path $PbkPath -Value $Phonebook
+
 
 # Create desktop shortcut that uses using rasphone.exe
 # Provides a static box for end users to type their user name/password into.
