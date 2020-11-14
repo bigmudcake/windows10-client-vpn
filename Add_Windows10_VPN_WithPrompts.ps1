@@ -26,9 +26,9 @@ $ServerAddress = ''
 # Leave as '' to prompt user.
 $PresharedKey
 
-# Set $SplitCheck below to 'y' or 'n' to enable/disable Split Tunnelling without prompting the user. 
+# Set $SplitTunnel below to 'y' or 'n' to enable/disable Split Tunnelling without prompting the user. 
 # Leave as '' to prompt user.
-$SplitCheck = ''
+$SplitTunnel = ''
 
 # Set $MoreRoutes below to 'n' if your using a DHCP server to pass routes to the VPN client at runtime 
 # as DHCP option 249 (classless address), and you do not wish to prompt the user to enter extra IP routes.  
@@ -178,24 +178,24 @@ Do {
 
 # Ask if split or full tunnel
 Do {
-    # only Prompt for $SplitCheck if not already set at top of script.
-    If (($SplitCheck -ne 'y') -and ($SplitCheck -ne 'n')) {
-        $SplitCheck = Read-Host -Prompt "`nSplit tunnel? (y/n)"
+    # only Prompt for $SplitTunnel if not already set at top of script.
+    If (($SplitTunnel -ne 'y') -and ($SplitTunnel -ne 'n')) {
+        $SplitTunnel = Read-Host -Prompt "`nSplit tunnel? (y/n)"
     }
-    if ($SplitCheck -eq 'y') {
-		$SplitCheck = $True
+    if ($SplitTunnel -eq 'y') {
+		$SplitTunnel = $True
 	}
-	elseif ($SplitCheck -eq 'n') {
-		$SplitCheck = $False
+	elseif ($SplitTunnel -eq 'n') {
+		$SplitTunnel = $False
 	}
-} Until (($SplitCheck -eq $True) -or ($SplitCheck -eq $False))
+} Until (($SplitTunnel -eq $True) -or ($SplitTunnel -eq $False))
 
 
 # Create the new VPN connection 
 # Splatting parameters with hash tables
 $HashArguments = @{ 
 	ServerAddress = $ServerAddress
-	SplitTunneling = $SplitCheck
+	SplitTunneling = $SplitTunnel
 	TunnelType = 'L2tp'
 	L2tpPsk = $PresharedKey 
 	AuthenticationMethod = $AuthMethod 
@@ -219,7 +219,7 @@ Start-Sleep -m 100
 
 # If split tunnel, you may need to add routes for the remote subnets
 # Use CIDR format: 192.168.5.0/24
-If (($SplitCheck -eq $True) -and ($MoreRoutes -eq '')) {
+If (($SplitTunnel -eq $True) -and ($MoreRoutes -eq '')) {
     # Loop until at least one valid route is created
     Do {
         # Prompt for the subnet
