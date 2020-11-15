@@ -43,6 +43,11 @@ $MoreRoutes = 'n'
 # Leave as '' to prompt user.
 $AllUserCheck = ''
 
+# Set $CreateShortcut below to 'y' to allow script to create a shortcut to the VPN Connection on the Desktop.
+# When a shortcut is created, users can start the VPN Connection by double-clicking on its icon.
+# Set as '' or 'n' for no  Shortcut. Users must click on network/wifi in tray, then select the VPN Connection from listing.
+$CreateShortcut = 'y'
+
 # Set Authentication Method. Can either be "Pap", "Chap", "MSChapv2", "Eap", or "MachineCertificate"
 $AuthMethod = "MSChapv2"
 
@@ -321,18 +326,23 @@ Set-Content -Path $PbkPath -Value $Phonebook
 # Provides a static box for end users to type their user name/password into.
 # Avoids Windows 10 overlay problems such as showing "Connecting..." even
 # after a successful connection.
-Try {
-    $ShortcutFile = "$DesktopPath\$ConnectionName.lnk"
-    $WScriptShell = New-Object -ComObject WScript.Shell
-    $Shortcut = $WScriptShell.CreateShortcut($ShortcutFile)
-    $Shortcut.TargetPath = "rasphone.exe"
-    $Shortcut.Arguments = "-d `"$ConnectionName`""
-    $ShortCut.WorkingDirectory = "$env:SystemRoot\System32\"
-    $Shortcut.Save()
-    Write-Host -ForegroundColor Yellow "Created VPN Shortcut on the Desktop. Please use this Shortcut to start your VPN"
+if ($CreateShortcut -eq 'y') {
+	Try {
+		$ShortcutFile = "$DesktopPath\$ConnectionName.lnk"
+		$WScriptShell = New-Object -ComObject WScript.Shell
+		$Shortcut = $WScriptShell.CreateShortcut($ShortcutFile)
+		$Shortcut.TargetPath = "rasphone.exe"
+		$Shortcut.Arguments = "-d `"$ConnectionName`""
+		$ShortCut.WorkingDirectory = "$env:SystemRoot\System32\"
+		$Shortcut.Save()
+		Write-Host -ForegroundColor Yellow "Created VPN Shortcut on the Desktop. Please use this Shortcut to start your VPN"
+	}
+	Catch {
+		Write-Host -ForegroundColor Red "`nUnable to create VPN shortcut."
+	}
 }
-Catch {
-    Write-Host -ForegroundColor Red "`nUnable to create VPN shortcut."
+else {
+	Write-Host -ForegroundColor Yellow "To Start VPN Connection click Network/Wifi icon on Taskbar and select it from Network List"
 }
 
 # Prevent Windows 10 problem with NAT-Traversal (often on hotspots)
