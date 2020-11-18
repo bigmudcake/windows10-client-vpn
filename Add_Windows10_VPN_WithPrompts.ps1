@@ -51,6 +51,15 @@ $CreateShortcut = 'y'
 # Set Authentication Method. Can either be "Pap", "Chap", "MSChapv2", "Eap", or "MachineCertificate"
 $AuthMethod = "MSChapv2"
 
+# Set below to a full file path to the Windows Application that you want to trigger the VPN Connection to start automatically.
+# Leave empty to always start VPN Connection manually.
+$TriggerApp = '' 
+
+# Set below to a DNS suffix used for the internal network that is matched against the active primary network 
+# connection so the VPN connection IS NOT triggered when the application specified in $TriggerApp is run. 
+# Leave emty to always trigger VPN connection on all primary networks. Is ignored if $TriggerApp is also empty.
+$TriggerSuffix = ''
+
 ################# END OF VALUES TO ADJUST - DO NOT CHANGE ANYTHING BELOW THIS LINE #########################
 ############################################################################################################
 
@@ -320,6 +329,32 @@ for ($counter=$ConnectionIndex; $counter -lt $Phonebook.Length; $counter++) {
 }
 # Save modified phonebook overtop of RASphone.pbk
 Set-Content -Path $PbkPath -Value $Phonebook
+
+
+# Set Auto Triggering of the VPN via a specified Application 
+if ($TriggerApp -ne '') {
+	Write-Host -ForegroundColor Yellow "`nSetup to Trigger VPN Connection by Application - $TriggerApp"
+	If ((Test-Path $TriggerApp) -eq $True) {
+		$HashTriggerParams = @{ 
+			ConnectionName = $ConnectionName
+			Force = $True
+			PassThru = $False
+		}
+		Try {
+			$HashTriggerApp = @{ ApplicationID = $TriggerApp; }
+			Add-VpnConnectionTriggerApplication @HashTriggerParams @HashTriggerApp
+			if ($TriggerSuffix -ne '') {
+				$HashTriggerSuffix = @{ DnsSuffix = $TriggerSuffix; }
+				Write-Host -ForegroundColor Yellow "Prevent Trigger on Trusted Network with Domain Suffix - $TriggerSuffix"
+				Add-VpnConnectionTriggerTrustedNetwork @HashTriggerParams @HashTriggerSuffix
+			}
+		}
+		Catch {
+			Write-Host -ForegroundColor Red "`nUnable to Add Trigger Settings for VPN Connection."
+		} 
+	}
+}
+Get-VpnConnectionTrigger -ConnectionName $ConnectionName
 
 
 # Create desktop shortcut that uses using rasphone.exe
