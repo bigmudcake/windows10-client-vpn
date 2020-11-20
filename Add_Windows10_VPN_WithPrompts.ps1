@@ -57,7 +57,7 @@ $TriggerApp = ''
 
 # Set below to a DNS suffix used for the internal network that is matched against the active primary network 
 # connection so the VPN connection IS NOT triggered when the application specified in $TriggerApp is run. 
-# Leave emty to always trigger VPN connection on all primary networks. Is ignored if $TriggerApp is also empty.
+# Leave emty to always trigger VPN connection on all primary networks.
 $TriggerSuffix = ''
 
 ################# END OF VALUES TO ADJUST - DO NOT CHANGE ANYTHING BELOW THIS LINE #########################
@@ -332,27 +332,26 @@ Set-Content -Path $PbkPath -Value $Phonebook
 
 
 # Set Auto Triggering of the VPN via a specified Application 
-if ($TriggerApp -ne '') {
-	Write-Host -ForegroundColor Yellow "`nSetup to Trigger VPN Connection by Application - $TriggerApp"
-	If ((Test-Path $TriggerApp) -eq $True) {
-		$HashTriggerParams = @{ 
-			ConnectionName = $ConnectionName
-			Force = $True
-			PassThru = $False
-		}
-		Try {
+if (($TriggerApp -ne '') -or ($TriggerSuffix -ne '')) {
+	Write-Host -ForegroundColor Yellow "`nSetup VPN Connection Triggers"
+	$HashTriggerParams = @{ 
+		ConnectionName = $ConnectionName
+		Force = $True
+		PassThru = $False
+	}
+	Try {
+		If (($TriggerApp -ne '') -and ((Test-Path $TriggerApp) -eq $True)) {
 			$HashTriggerApp = @{ ApplicationID = $TriggerApp; }
 			Add-VpnConnectionTriggerApplication @HashTriggerParams @HashTriggerApp
-			if ($TriggerSuffix -ne '') {
-				$HashTriggerSuffix = @{ DnsSuffix = $TriggerSuffix; }
-				Write-Host -ForegroundColor Yellow "Prevent Trigger on Trusted Network with Domain Suffix - $TriggerSuffix"
-				Add-VpnConnectionTriggerTrustedNetwork @HashTriggerParams @HashTriggerSuffix
-			}
 		}
-		Catch {
-			Write-Host -ForegroundColor Red "`nUnable to Add Trigger Settings for VPN Connection."
-		} 
+		if ($TriggerSuffix -ne '') {
+			$HashTriggerSuffix = @{ DnsSuffix = $TriggerSuffix; }
+			Add-VpnConnectionTriggerTrustedNetwork @HashTriggerParams @HashTriggerSuffix
+		}
 	}
+	Catch {
+		Write-Host -ForegroundColor Red "`nUnable to Add Trigger Settings for VPN Connection."
+	} 
 }
 Get-VpnConnectionTrigger -ConnectionName $ConnectionName
 
