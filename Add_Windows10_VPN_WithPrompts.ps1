@@ -2,7 +2,7 @@
 # By default, this script creates an -AllUserConnection in the public phonebook
 # This is due to specific needs of my primary customers.
 # To make a single user connection, do the following:
-#   change $AllUserCheck below to 'n' or '' to prompt user.
+#   change $AllUsers below to 'n' or '' to prompt user.
 
 # Return True if this script is "Run as Administrator" or from an administrator account
 $IsAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")
@@ -37,28 +37,36 @@ $SplitTunnel = ''
 # Leave as '' to prompt user to add static IP routes.
 $MoreRoutes = 'n'
 
-# Set $AllUserCheck below to enable creation of VPN Connection for All Users ('y') 
+# Set $AllUsers below to enable creation of VPN Connection for All Users ('y') 
 # or Local User only ('n') without prompting the user.
 # If you set this to 'y' then this script must be run with administrator rights.
 # Leave as '' to prompt user.
-$AllUserCheck = ''
+$AllUsers = ''
 
 # Set $CreateShortcut below to 'y' to allow script to create a shortcut to the VPN Connection on the Desktop.
 # When a shortcut is created, users can start the VPN Connection by double-clicking on its icon.
 # Set as '' or 'n' for no  Shortcut. Users must click on network/wifi in tray, then select the VPN Connection from listing.
 $CreateShortcut = 'y'
 
-# Set Authentication Method. Can either be "Pap", "Chap", "MSChapv2", "Eap", or "MachineCertificate"
-$AuthMethod = "MSChapv2"
-
 # Set below to a full file path to the Windows Application that you want to trigger the VPN Connection to start automatically.
+# Ignored if VPN creation is set 'y' for All Users.
 # Leave empty to always start VPN Connection manually.
 $TriggerApp = '' 
 
 # Set below to a DNS suffix used for the internal network that is matched against the active primary network 
 # connection so the VPN connection IS NOT triggered when the application specified in $TriggerApp is run. 
+# Ignored if VPN creation is set 'y' for All Users.
 # Leave emty to always trigger VPN connection on all primary networks.
 $TriggerSuffix = ''
+
+# Set any extra settings to be applied for the new VPN connection.
+# AuthenticationMethod either be "Pap", "Chap", "MSChapv2", "Eap", or "MachineCertificate".
+$VPNExtraArguments = @{ 
+	TunnelType = 'L2tp'
+	AuthenticationMethod = 'MSChapv2' 
+	EncryptionLevel = 'Optional' 
+	RememberCredential = $False
+}
 
 ################# END OF VALUES TO ADJUST - DO NOT CHANGE ANYTHING BELOW THIS LINE #########################
 ############################################################################################################
@@ -66,42 +74,44 @@ $TriggerSuffix = ''
 
 
 
-# Abort if AllUserCheck is set to 'y' and there are no Administrator Rights on this script
-if (($IsAdmin -eq $False) -and ($AllUserCheck -eq 'y')) {
-	Write-Host -ForegroundColor Red "`nERROR: This script must be run with Administrator Rights!"
-	Pause
-	exit
-}
 
 # override AllUserCheck if there are no Administrator Rights as VPN can then only be created for Local User.
 if ($IsAdmin -eq $False) {
-	$AllUserCheck = 'n'
+	$AllUsers = 'n'
 }
 else {
-	Write-Host -ForegroundColor Yellow "`nNOTE: This script is running with Administrator Rights"
+	Write-Host -ForegroundColor Yellow "`nNOTE: This script is running with Administrator Rights."
 }
 
 # Set whether VPN Connection is created for All Users or Local User only
 Do {
-    # only Prompt for $AllUserCheck if not already set.
-    If (($AllUserCheck -ne 'y') -and ($AllUserCheck -ne 'n')) {
-        $AllUserCheck = Read-Host -Prompt "`nCreate this VPN Connection for All Users? (y/n)"
+    # only Prompt for $AllUsers if not already set.
+    If (($AllUsers -ne 'y') -and ($AllUsers -ne 'n')) {
+        $AllUsers = Read-Host -Prompt "`nCreate this VPN Connection for All Users? (y/n)"
 	}
-	If ($AllUserCheck -eq 'y') {
+	If ($AllUsers -eq 'y') {
 		# Set paths and variables for all users scope (requires script run with administrator rights)
 		Write-Host -ForegroundColor Yellow "`nAbout to create a VPN Connection for All Users of this Computer."
-		$AllUserCheck = $True
+		$AllUsers = $True
 		$RootPbkPath = $env:PROGRAMDATA
 		$DesktopPath = "$env:Public\Desktop"
 	}
-	elseif ($AllUserCheck -eq 'n') {
+	elseif ($AllUsers -eq 'n') {
 		# Set paths and variables for this user only
 		Write-Host -ForegroundColor Yellow "`nAbout to create a VPN Connection for this Windows User only."
-		$AllUserCheck = $False
+		$AllUsers = $False
 		$RootPbkPath = $env:APPDATA
 		$DesktopPath = [Environment]::GetFolderPath("Desktop") # allows for redirected desktops
 	}
-} Until (($AllUserCheck -eq $True) -or ($AllUserCheck -eq $False))
+} Until (($AllUsers -eq $True) -or ($AllUsers -eq $False))
+
+
+# Abort if AllUserCheck is set to 'y' and there are no Administrator Rights on this script
+if (($IsAdmin -eq $False) -and ($AllUsers -eq 'y')) {
+	Write-Host -ForegroundColor Red "`nERROR: This script must be run with Administrator Rights if VPN Connection is created in 'All User' mode!"
+	Pause
+	exit
+}
 
 
 # Phonebook path for all user connections.
@@ -142,7 +152,7 @@ Do {
 # Create a hash table for splatting with common base parameters
 $HashBase = @{ 
 	Name = $ConnectionName 
-	AllUserConnection = $AllUserCheck
+	AllUserConnection = $AllUsers
 }
 
 # Check if matching VPN already exists.
@@ -209,20 +219,13 @@ Do {
 
 
 # Create the new VPN connection 
-# Splatting parameters with hash tables
+# Splatting parameters with hash tables and extra arguments defined at top of script
 $HashArguments = @{ 
-	ServerAddress = $ServerAddress
-	SplitTunneling = $SplitTunnel
-	TunnelType = 'L2tp'
-	L2tpPsk = $PresharedKey 
-	AuthenticationMethod = $AuthMethod 
-	EncryptionLevel = 'Optional' 
-	RememberCredential = $False
 	Force = $True
 	PassThru = $True
 }
 Try {
-	Add-VpnConnection @HashBase @HashArguments
+	Add-VpnConnection @HashBase @VPNExtraArguments @HashArguments
 }
 Catch {
 	Write-Host -ForegroundColor Red "`nERROR: Unable to create connection named `"$ConnectionName`""
@@ -333,28 +336,34 @@ Set-Content -Path $PbkPath -Value $Phonebook
 
 # Set Auto Triggering of the VPN via a specified Application 
 if (($TriggerApp -ne '') -or ($TriggerSuffix -ne '')) {
-	Write-Host -ForegroundColor Yellow "`nSetup VPN Connection Triggers"
-	$HashTriggerParams = @{ 
-		ConnectionName = $ConnectionName
-		Force = $True
-		PassThru = $False
+	if ($AllUsers -eq $True) {
+		Write-Host -ForegroundColor Yellow "`nAll User setup specified, Ignoring setup of VPN Connection Triggers"
 	}
-	Try {
-		If (($TriggerApp -ne '') -and ((Test-Path $TriggerApp) -eq $True)) {
-			$HashTriggerApp = @{ ApplicationID = $TriggerApp; }
-			Add-VpnConnectionTriggerApplication @HashTriggerParams @HashTriggerApp
+	else {
+		Write-Host -ForegroundColor Yellow "`nSetup VPN Connection Triggers for Local User"
+		$HashTriggerParams = @{ 
+			ConnectionName = $ConnectionName
+			Force = $True
+			PassThru = $False
 		}
-		if ($TriggerSuffix -ne '') {
-			$HashTriggerSuffix = @{ DnsSuffix = $TriggerSuffix; }
-			Add-VpnConnectionTriggerTrustedNetwork @HashTriggerParams @HashTriggerSuffix
+		Try {
+			If (($TriggerApp -ne '') -and ((Test-Path $TriggerApp) -eq $True)) {
+				$HashTriggerApp = @{ ApplicationID = $TriggerApp; }
+				Add-VpnConnectionTriggerApplication @HashTriggerParams @HashTriggerApp
+			}
+			if ($TriggerSuffix -ne '') {
+				$HashTriggerSuffix = @{ DnsSuffix = $TriggerSuffix; }
+				Add-VpnConnectionTriggerTrustedNetwork @HashTriggerParams @HashTriggerSuffix
+			}
 		}
+		Catch {
+			Write-Host -ForegroundColor Red "`nUnable to Add Trigger Settings for VPN Connection."
+		} 
 	}
-	Catch {
-		Write-Host -ForegroundColor Red "`nUnable to Add Trigger Settings for VPN Connection."
-	} 
 }
-Get-VpnConnectionTrigger -ConnectionName $ConnectionName
-
+if ($AllUsers -eq $False) {
+	Get-VpnConnectionTrigger -ConnectionName $ConnectionName
+}
 
 # Create desktop shortcut that uses using rasphone.exe
 # Provides a static box for end users to type their user name/password into.
